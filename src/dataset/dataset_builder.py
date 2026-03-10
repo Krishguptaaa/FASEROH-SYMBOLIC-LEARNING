@@ -13,8 +13,9 @@ def build_dataset(n_samples=1000):
 
     data = []
 
-    for expr in expressions:
-
+    for i,expr in enumerate(expressions):
+        if i % 1000 == 0:
+            print(f"Processed {i} samples")
         try:
             simplified_expr, taylor = generate_taylor_pair(expr)
 
@@ -44,7 +45,7 @@ def save_dataset(df, path="data/raw/dataset.csv"):
 
 if __name__ == "__main__":
 
-    dataset_size = 100
+    dataset_size = 10000
 
     print("Generating dataset...")
 

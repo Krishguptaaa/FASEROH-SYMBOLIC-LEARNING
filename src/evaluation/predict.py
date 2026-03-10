@@ -91,3 +91,22 @@ def test_prediction(model, vocab, device):
     print("Input:", expr)
     print("Predicted Taylor:", prediction)
 
+if __name__ == "__main__":
+
+    import torch
+    import pandas as pd
+
+    from src.training.train_lstm import load_dataset, tokenize_data, build_vocab
+    from src.evaluation.predict import load_model, test_prediction
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    functions, expansions = load_dataset()
+
+    tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
+
+    vocab = build_vocab(tokenized_inputs, tokenized_outputs)
+
+    model = load_model(vocab, device)
+
+    test_prediction(model, vocab, device)

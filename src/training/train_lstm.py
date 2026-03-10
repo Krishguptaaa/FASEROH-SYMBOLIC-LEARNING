@@ -103,6 +103,7 @@ def train_model(model, dataloader, criterion, optimizer):
     model.train()
 
     total_loss = 0
+    print("Using device:", device)
 
     for src, trg in dataloader:
 

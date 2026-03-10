@@ -12,11 +12,15 @@ def add_special_tokens(tokens):
 
 def pad_sequence(sequence, max_length, pad_value=0):
     """
-    Pad sequence to fixed length.
+    Pad or truncate sequence to fixed length.
     """
-    padded = sequence + [pad_value] * (max_length - len(sequence))
-    return padded
 
+    if len(sequence) > max_length:
+        sequence = sequence[:max_length]
+
+    padded = sequence + [pad_value] * (max_length - len(sequence))
+
+    return padded
 
 def encode_dataset(tokenized_data, vocab, max_length):
     """
