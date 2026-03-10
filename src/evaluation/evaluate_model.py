@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 from sympy import sympify, simplify
+from sklearn.model_selection import train_test_split
 
 from src.preprocessing.tokenizer import tokenize_expression
 from src.preprocessing.vocabulary import encode_tokens
@@ -33,6 +34,16 @@ def compute_exact_match(predictions, targets):
 def evaluate():
 
     functions, expansions = load_dataset()
+
+    train_f, test_f, train_t, test_t = train_test_split(
+        functions,
+        expansions,
+        test_size=0.2,
+        random_state=42
+    )
+
+    functions = test_f
+    expansions = test_t
 
     tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
 

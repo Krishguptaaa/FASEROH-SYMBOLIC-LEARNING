@@ -3,6 +3,7 @@ import torch.nn as nn
 import pandas as pd
 import os
 
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
 from src.preprocessing.tokenizer import tokenize_expression
@@ -142,8 +143,18 @@ def main():
 
     functions, expansions = load_dataset()
 
-    tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
+    train_f, test_f, train_t, test_t = train_test_split(
+        functions,
+        expansions,
+        test_size=0.2,
+        random_state=42
+    )
 
+    tokenized_inputs, tokenized_outputs = tokenize_data(train_f, train_t)
+
+    test_functions = test_f
+    test_targets = test_t
+    
     vocab = build_vocab(tokenized_inputs, tokenized_outputs)
     print("Vocabulary size:", len(vocab))
 
