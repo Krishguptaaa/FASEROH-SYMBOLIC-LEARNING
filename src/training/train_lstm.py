@@ -145,6 +145,7 @@ def main():
     tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
 
     vocab = build_vocab(tokenized_inputs, tokenized_outputs)
+    print("Vocabulary size:", len(vocab))
 
     encoded_inputs, encoded_outputs = encode_data(
         tokenized_inputs,
