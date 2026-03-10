@@ -97,3 +97,62 @@ def initialize_training(model):
 
     return criterion, optimizer
 
+def train_model(model, dataloader, criterion, optimizer):
+
+    model.train()
+
+    total_loss = 0
+
+    for src, trg in dataloader:
+
+        src = src.to(device)
+        trg = trg.to(device)
+
+        optimizer.zero_grad()
+
+        output = model(src, trg)
+
+        vocab_size = output.shape[-1]
+
+        output = output.reshape(-1, vocab_size)
+
+        trg = trg.reshape(-1)
+
+        loss = criterion(output, trg)
+
+        loss.backward()
+
+        optimizer.step()
+
+        total_loss += loss.item()
+
+    return total_loss / len(dataloader)
+
+def main():
+
+    functions, expansions = load_dataset()
+
+    tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
+
+    vocab = build_vocab(tokenized_inputs, tokenized_outputs)
+
+    encoded_inputs, encoded_outputs = encode_data(
+        tokenized_inputs,
+        tokenized_outputs,
+        vocab
+    )
+
+    dataloader = create_dataloader(encoded_inputs, encoded_outputs)
+
+    model = initialize_model(len(vocab))
+
+    criterion, optimizer = initialize_training(model)
+
+    for epoch in range(EPOCHS):
+
+        loss = train_model(model, dataloader, criterion, optimizer)
+
+        print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {loss:.4f}")
+
+if __name__ == "__main__":
+    main()
