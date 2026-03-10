@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import pandas as pd
+import os
 
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -128,6 +129,14 @@ def train_model(model, dataloader, criterion, optimizer):
 
     return total_loss / len(dataloader)
 
+def save_model(model):
+
+    os.makedirs("models", exist_ok=True)
+
+    torch.save(model.state_dict(), "models/lstm_model.pth")
+
+    print("Model saved to models/lstm_model.pth")
+
 def main():
 
     functions, expansions = load_dataset()
@@ -153,6 +162,7 @@ def main():
         loss = train_model(model, dataloader, criterion, optimizer)
 
         print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {loss:.4f}")
+    save_model(model)
 
 if __name__ == "__main__":
     main()

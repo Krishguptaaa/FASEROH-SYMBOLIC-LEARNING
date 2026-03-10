@@ -5,6 +5,24 @@ from src.preprocessing.vocabulary import encode_tokens
 
 from src.utils.config import MAX_SEQUENCE_LENGTH
 
+from src.models.lstm_seq2seq import Encoder, Decoder, Seq2Seq
+
+
+def load_model(vocab, device):
+
+    vocab_size = len(vocab)
+
+    encoder = Encoder(vocab_size)
+    decoder = Decoder(vocab_size)
+
+    model = Seq2Seq(encoder, decoder, device).to(device)
+
+    model.load_state_dict(torch.load("models/lstm_model.pth"))
+
+    model.eval()
+
+    return model
+
 def predict_sequence(model, input_expr, vocab, device, max_length=30):
 
     model.eval()
