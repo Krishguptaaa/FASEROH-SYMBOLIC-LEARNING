@@ -29,27 +29,6 @@ def compute_exact_match(predictions, targets):
     return correct / len(predictions)
 
 
-def compute_token_accuracy(predictions, targets):
-
-    total_tokens = 0
-    correct_tokens = 0
-
-    for pred, tgt in zip(predictions, targets):
-
-        pred_tokens = pred.split()
-        tgt_tokens = tgt.split()
-
-        min_len = min(len(pred_tokens), len(tgt_tokens))
-
-        for i in range(min_len):
-
-            if pred_tokens[i] == tgt_tokens[i]:
-                correct_tokens += 1
-
-            total_tokens += 1
-
-    return correct_tokens / total_tokens
-
 
 def evaluate():
 
@@ -73,13 +52,13 @@ def evaluate():
         predictions.append(prediction)
         targets.append(t)
 
-    exact_match = compute_exact_match(predictions, targets)
-    token_acc = compute_token_accuracy(predictions, targets)
+    symbolic_accuracy = compute_exact_match(predictions, targets)
+   
 
     print("\nEvaluation Results")
     print("-------------------")
-    print("Exact Match Accuracy:", round(exact_match, 4))
-    print("Token Accuracy:", round(token_acc, 4))
+    print("symbolic Accuracy:", round(symbolic_accuracy, 4))
+    
 
 
 if __name__ == "__main__":
