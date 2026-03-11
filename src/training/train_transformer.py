@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
-
+import os
+import json
 from torch.utils.data import DataLoader, TensorDataset
-
+from sklearn.model_selection import train_test_split
 from src.preprocessing.tokenizer import tokenize_expression
 from src.preprocessing.vocabulary import build_vocabulary
 from src.preprocessing.encoder import encode_dataset
@@ -80,7 +81,7 @@ def initialize_training(model):
 
     optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=LEARNING_RATE
+        lr=0.0002 #optuna value
     )
 
     return criterion, optimizer
@@ -116,8 +117,6 @@ def train_model(model, dataloader, criterion, optimizer):
 
     return total_loss / len(dataloader)
 
-import os
-
 def save_model(model):
 
     os.makedirs("models", exist_ok=True)
@@ -127,29 +126,38 @@ def save_model(model):
     print("Model saved to models/transformer_model.pth")
 
 def main():
-
+    # 1. Load data
     functions, expansions = load_dataset()
 
-    tokenized_inputs, tokenized_outputs = tokenize_data(functions, expansions)
+    # 2. Build Universal Vocab from 100% of the data (Matches LSTM)
+    all_in, all_out = tokenize_data(functions, expansions)
+    vocab = build_vocabulary(all_in + all_out)
+    
+    # 3. Save Vocab to disk (Overwrites/Refreshes the same master file)
+    os.makedirs("models", exist_ok=True)
+    with open("models/vocab.json", "w") as f:
+        json.dump(vocab, f)
+    
+    print(f"Vocabulary saved. Size: {len(vocab)}")
 
-    vocab = build_vocabulary(tokenized_inputs + tokenized_outputs)
-
-    encoded_inputs, encoded_outputs = encode_data(
-        tokenized_inputs,
-        tokenized_outputs,
-        vocab
+    # 4. Split data (80/20) - Essential for a fair evaluation later
+    train_f, test_f, train_t, test_t = train_test_split(
+        functions, expansions, test_size=0.2, random_state=42
     )
 
+    # 5. Tokenize and Encode ONLY the training split
+    tokenized_inputs, tokenized_outputs = tokenize_data(train_f, train_t)
+    encoded_inputs, encoded_outputs = encode_data(
+        tokenized_inputs, tokenized_outputs, vocab
+    )
+
+    # 6. Transformer Training Pipeline
     dataloader = create_dataloader(encoded_inputs, encoded_outputs)
-
     model = initialize_model(len(vocab))
-
     criterion, optimizer = initialize_training(model)
 
     for epoch in range(EPOCHS):
-
         loss = train_model(model, dataloader, criterion, optimizer)
-
         print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {loss:.4f}")
 
     save_model(model)

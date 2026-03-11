@@ -34,11 +34,11 @@ class TransformerSeq2Seq(nn.Module):
     def __init__(
         self,
         vocab_size,
-        d_model=128,
-        nhead=4,
-        num_encoder_layers=2,
-        num_decoder_layers=2,
-        dim_feedforward=256,
+        d_model=512,
+        nhead=8,
+        num_encoder_layers=4,
+        num_decoder_layers=4,
+        dim_feedforward=512,
         dropout=0.1,
     ):
 
@@ -63,16 +63,21 @@ class TransformerSeq2Seq(nn.Module):
         self.d_model = d_model
 
     def forward(self, src, tgt):
-
-        src = self.embedding(src) * torch.sqrt(torch.tensor(self.d_model))
-
-        tgt = self.embedding(tgt) * torch.sqrt(torch.tensor(self.d_model))
+        # Position-wise scaling
+        src = self.embedding(src) * torch.sqrt(torch.tensor(self.d_model, dtype=torch.float32))
+        tgt = self.embedding(tgt) * torch.sqrt(torch.tensor(self.d_model, dtype=torch.float32))
 
         src = self.positional_encoding(src)
         tgt = self.positional_encoding(tgt)
 
-        output = self.transformer(src, tgt)
+        # --- THE FIX: Create a Causal Mask for the Decoder ---
+        tgt_seq_len = tgt.size(1)
+        # Masks future positions with -inf so the model can't "see" them
+        tgt_mask = torch.triu(torch.ones(tgt_seq_len, tgt_seq_len, device=tgt.device) * float('-inf'), diagonal=1)
+        # -----------------------------------------------------
 
+        # Pass tgt_mask to the transformer
+        output = self.transformer(src, tgt, tgt_mask=tgt_mask)
         output = self.fc_out(output)
 
         return output

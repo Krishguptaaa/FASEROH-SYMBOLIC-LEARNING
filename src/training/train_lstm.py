@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pandas as pd
 import os
-
+import json
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
@@ -131,51 +131,52 @@ def train_model(model, dataloader, criterion, optimizer):
 
     return total_loss / len(dataloader)
 
-def save_model(model):
-
-    os.makedirs("models", exist_ok=True)
-
-    torch.save(model.state_dict(), "models/lstm_model.pth")
-
-    print("Model saved to models/lstm_model.pth")
-
 def main():
-
+    # 1. Load data
     functions, expansions = load_dataset()
 
-    train_f, test_f, train_t, test_t = train_test_split(
-        functions,
-        expansions,
-        test_size=0.2,
-        random_state=42
-    )
-
-    tokenized_inputs, tokenized_outputs = tokenize_data(train_f, train_t)
-
-    test_functions = test_f
-    test_targets = test_t
+    # 2. Build Universal Vocab from 100% of the data
+    all_in, all_out = tokenize_data(functions, expansions)
+    vocab = build_vocabulary(all_in + all_out)
     
-    vocab = build_vocab(tokenized_inputs, tokenized_outputs)
-    print("Vocabulary size:", len(vocab))
+    # 3. Save Vocab to disk
+    os.makedirs("models", exist_ok=True)
+    with open("models/vocab.json", "w") as f:
+        json.dump(vocab, f)
+    
+    print(f"Vocabulary saved. Size: {len(vocab)}")
 
-    encoded_inputs, encoded_outputs = encode_data(
-        tokenized_inputs,
-        tokenized_outputs,
-        vocab
+    # 4. Split data for Training (80/20)
+    train_f, test_f, train_t, test_t = train_test_split(
+        functions, expansions, test_size=0.2, random_state=42
     )
 
+    # 5. Tokenize and Encode ONLY the training split
+    tokenized_inputs, tokenized_outputs = tokenize_data(train_f, train_t)
+    encoded_inputs, encoded_outputs = encode_data(
+        tokenized_inputs, tokenized_outputs, vocab
+    )
+
+    # 6. Standard Training Pipeline
     dataloader = create_dataloader(encoded_inputs, encoded_outputs)
-
     model = initialize_model(len(vocab))
-
     criterion, optimizer = initialize_training(model)
 
     for epoch in range(EPOCHS):
-
         loss = train_model(model, dataloader, criterion, optimizer)
-
         print(f"Epoch {epoch+1}/{EPOCHS} | Loss: {loss:.4f}")
+    
     save_model(model)
+
+
+
+def save_model(model):
+    """
+    Saves the trained model state dictionary to the models directory.
+    """
+    os.makedirs("models", exist_ok=True)
+    torch.save(model.state_dict(), "models/lstm_model.pth")
+    print("Model saved to models/lstm_model.pth")
 
 if __name__ == "__main__":
     main()
