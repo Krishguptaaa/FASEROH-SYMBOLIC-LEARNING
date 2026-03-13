@@ -2,81 +2,92 @@ import torch
 import sys
 import json
 import pandas as pd
+from tqdm import tqdm
 from sympy import sympify, simplify
 from sklearn.model_selection import train_test_split
 
-from src.preprocessing.tokenizer import tokenize_expression
-from src.preprocessing.vocabulary import encode_tokens
-from src.preprocessing.vocabulary import build_vocabulary
-from src.preprocessing.encoder import encode_dataset
-
-from src.training.train_lstm import load_dataset, tokenize_data
 from src.evaluation.predict import predict_sequence, decode_tokens, load_model
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-def compute_exact_match(predictions, targets):
-
-    correct = 0
+def compute_metrics(predictions, targets):
+    exact_match_count = 0
+    symbolic_match_count = 0
 
     for p, t in zip(predictions, targets):
-
+        # 1. Standard String Exact Match (Fast)
+        if p.strip() == t.strip():
+            exact_match_count += 1
+            symbolic_match_count += 1
+            continue
+            
+        # 2. Symbolic Equivalence (Slow but robust)
         try:
             if simplify(sympify(p) - sympify(t)) == 0:
-                correct += 1
+                symbolic_match_count += 1
         except:
-            pass
+            pass # Sympy couldn't parse the model's output
 
-    return correct / len(predictions)
+    total = len(predictions)
+    return (exact_match_count / total) * 100, (symbolic_match_count / total) * 100
 
 def evaluate():
-    functions, expansions = load_dataset()
+    # Load identical test set split from training to prevent data leakage
+    df = pd.read_csv("data/processed/dataset_ready_100k.csv")
+    _, test_df = train_test_split(df, test_size=0.1, random_state=42)
+    
+    test_f = test_df['function'].tolist()
+    test_t = test_df['taylor'].tolist()
 
-    # Maintain the same split as training
-    train_f, test_f, train_t, test_t = train_test_split(
-        functions, expansions, test_size=0.2, random_state=42
-    )
-
-    # --- THE FIX: Load the saved training vocabulary ---
     with open("models/vocab.json", "r") as f:
         vocab = json.load(f)
-    # ---------------------------------------------------
 
-    model_type = "lstm"
-    if len(sys.argv) > 1:
-        model_type = sys.argv[1].lower()
+    model_type = sys.argv[1].lower() if len(sys.argv) > 1 else "lstm"
 
     if model_type == "lstm":
         model = load_model(vocab, device)
-        print("Evaluating LSTM model")
+        print(f"✅ Evaluating LSTM model on {device}")
     elif model_type == "transformer":
         from src.models.transformer_seq2seq import TransformerSeq2Seq
-        # Initialize model with the exact vocab size from the file
         model = TransformerSeq2Seq(len(vocab)).to(device)
         model.load_state_dict(torch.load("models/transformer_model.pth", weights_only=True))
         model.eval()
-        print("Evaluating Transformer model")
+        print(f"✅ Evaluating Transformer model on {device}")
     
     predictions = []
     targets = []
+    
+    # Testing on 500 samples
+    samples_to_test = 500
+    print(f"Running inference on {samples_to_test} test cases...")
 
-    with torch.no_grad():
-        for f, t in zip(test_f[:500], test_t[:500]):
-            if model_type == "lstm":
-                predicted_ids = predict_sequence(model, f, vocab, device)
-            else:
-                from src.evaluation.predict import predict_sequence_transformer
-                predicted_ids = predict_sequence_transformer(model, f, vocab, device)
+    for f, t in tqdm(zip(test_f[:samples_to_test], test_t[:samples_to_test]), total=samples_to_test, ncols=80):
+        if model_type == "lstm":
+            predicted_ids = predict_sequence(model, f, vocab, device)
+        else:
+            from src.evaluation.predict import predict_sequence_transformer
+            predicted_ids = predict_sequence_transformer(model, f, vocab, device)
 
-            prediction = decode_tokens(predicted_ids, vocab)
-            predictions.append(prediction)
-            targets.append(t)
+        prediction = decode_tokens(predicted_ids, vocab)
+        predictions.append(prediction)
+        targets.append(t)
 
-    symbolic_accuracy = compute_exact_match(predictions, targets)
-    print(f"\nEvaluation Results for {model_type.upper()}")
-    print("-------------------")
-    print("Symbolic Accuracy:", round(symbolic_accuracy, 4))
+    exact_acc, symbolic_acc = compute_metrics(predictions, targets)
+    
+    print("\n" + "="*40)
+    print(f"📊 EVALUATION RESULTS FOR {model_type.upper()}")
+    print("="*40)
+    print(f"String Exact Match:   {exact_acc:.2f}%")
+    print(f"Symbolic Equivalence: {symbolic_acc:.2f}%")
+    print("="*40)
+    
+    # Print a few examples for visual inspection
+    print("\n🔍 SAMPLE PREDICTIONS:")
+    for i in range(3):
+        print(f"F(x)  : {test_f[i]}")
+        print(f"Target: {test_t[i]}")
+        print(f"Pred  : {predictions[i]}")
+        print("-" * 40)
+
 if __name__ == "__main__":
     evaluate()
