@@ -1,56 +1,57 @@
-from sympy import symbols, sympify, series, simplify
+import random
+from sympy import symbols, sympify, series, simplify, expand # <-- Added expand here
 
 x = symbols("x")
 
+# 50% chance of standard Maclaurin (0), 50% chance of other points
+EXPANSION_POINTS = [-2, -1, 0, 1, 2] 
 
 def simplify_expression(expr_str):
-    """
-    Convert string expression into a simplified SymPy expression.
-    """
     expr = sympify(expr_str)
-    simplified_expr = simplify(expr)
-    return simplified_expr
+    return simplify(expr)
 
-
-def compute_taylor(expr, order=4):
+def compute_taylor(expr, point=0, order=4):
     """
-    Compute Taylor expansion of expression around x=0 up to given order.
+    Compute Taylor expansion of expression around x=point up to given order.
     """
-    taylor = series(expr, x, 0, order + 1).removeO()
-    simplified_taylor = simplify(taylor)
-    return simplified_taylor
-
+    # 1. Calculate the series
+    taylor_series = series(expr, x, point, order + 1).removeO()
+    
+    # 2. THE FLATTENING FIX: Expand the polynomial
+    return expand(taylor_series)
 
 def generate_taylor_pair(expr_str):
     """
-    Takes a string expression and returns:
-    (simplified_expression, taylor_expansion)
+    Returns the conditional input and the target:
+    Input: "simplified_expression,expansion_point"
+    Target: "taylor_expansion"
     """
-
+    point = random.choice(EXPANSION_POINTS)
+    
     simplified_expr = simplify_expression(expr_str)
-
-    taylor_expansion = compute_taylor(simplified_expr)
-
-    return str(simplified_expr), str(taylor_expansion)
-
+    taylor_expansion = compute_taylor(simplified_expr, point=point)
+    
+    # Format input (removed extra spaces around the comma)
+    model_input = f"{simplified_expr},{point}"
+    
+    # Convert to strings for text manipulation
+    input_str = str(model_input)
+    target_str = str(taylor_expansion)
+    
+    # 3. THE TOKENIZER FIX: Replace ** with ^
+    input_str = input_str.replace("**", "^")
+    target_str = target_str.replace("**", "^")
+    
+    # 4. COMPRESSION FIX: Remove all whitespace
+    input_str = input_str.replace(" ", "")
+    target_str = target_str.replace(" ", "")
+    
+    return input_str, target_str
 
 if __name__ == "__main__":
-
-    test_expressions = [
-        "sin(x)",
-        "cos(x)",
-        "exp(x)",
-        "sin(x) + 2*x",
-        "x*sin(x)",
-        "1*sin(x)",
-        "x - x - 5"
-    ]
-
+    test_expressions = ["sin(x)", "cos(2*x)", "exp(x+1)"]
     for expr in test_expressions:
-
-        simplified, taylor = generate_taylor_pair(expr)
-
-        print("Input:", expr)
-        print("Simplified:", simplified)
-        print("Taylor:", taylor)
+        model_input, taylor = generate_taylor_pair(expr)
+        print("Model Input:", model_input)
+        print("Taylor Target:", taylor)
         print("-" * 40)

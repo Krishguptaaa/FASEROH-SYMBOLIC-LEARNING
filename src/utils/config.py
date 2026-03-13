@@ -9,7 +9,7 @@ All dataset, model, and training parameters are defined here.
 
 DATASET_SIZE = 10000
 
-MAX_SEQUENCE_LENGTH = 30
+MAX_SEQUENCE_LENGTH = 256
 
 
 # ======================
@@ -27,9 +27,10 @@ NUM_LAYERS = 2
 # Training parameters
 # ======================
 
-BATCH_SIZE = 32
+BATCH_SIZE = 128
 
-LEARNING_RATE = 0.001
+LEARNING_RATE_LSTM = 0.001
+LEARNING_RATE_TRANSFORMER = 0.001
 
 EPOCHS = 30
 
