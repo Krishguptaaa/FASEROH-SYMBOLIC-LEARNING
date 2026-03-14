@@ -14,7 +14,6 @@ def random_constant():
 
 def random_function():
     func = random.choice(FUNCTIONS)
-    # Add variety to the inner term (e.g., sin(2*x), exp(x+1), or just sin(x))
     inner_choice = random.choice([
         VARIABLE,
         f"{random_constant()}*{VARIABLE}",
@@ -23,9 +22,6 @@ def random_function():
     return f"{func}({inner_choice})"
 
 def random_term():
-    """
-    Generates a basic term.
-    """
     choices = [
         random_variable(),
         random_constant(),
@@ -34,9 +30,6 @@ def random_term():
     return random.choice(choices)
 
 def generate_expression(max_operations=5):
-    """
-    Generate a random expression with 1–3 operations.
-    """
     num_operations = random.randint(1, max_operations)
     expression = random_term()
 

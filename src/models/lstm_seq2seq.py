@@ -6,13 +6,11 @@ class Encoder(nn.Module):
     def __init__(self, vocab_size, emb_dim=256, hid_dim=1024, n_layers=4, dropout=0.1):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, emb_dim)
-        # batch_first=True makes it easier to work with our DataLoaders
         self.rnn = nn.LSTM(emb_dim, hid_dim, n_layers, dropout=dropout, batch_first=True)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src):
         embedded = self.dropout(self.embedding(src))
-        # outputs: [batch, seq_len, hid_dim] - needed for Attention
         outputs, (hidden, cell) = self.rnn(embedded)
         return outputs, hidden, cell
 
@@ -22,27 +20,21 @@ class Decoder(nn.Module):
         self.vocab_size = vocab_size
         self.embedding = nn.Embedding(vocab_size, emb_dim)
         
-        # RNN input is emb_dim + hid_dim because we concatenate the context vector
         self.rnn = nn.LSTM(emb_dim + hid_dim, hid_dim, n_layers, dropout=dropout, batch_first=True)
         self.fc_out = nn.Linear(hid_dim, vocab_size)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, input, hidden, cell, encoder_outputs):
-        input = input.unsqueeze(1) # [batch, 1]
+        input = input.unsqueeze(1)
         embedded = self.dropout(self.embedding(input))
         
-        # --- DOT PRODUCT ATTENTION ---
-        # Query: current hidden state, Key/Value: encoder outputs
-        query = hidden[-1].unsqueeze(2) # [batch, hid_dim, 1]
-        scores = torch.bmm(encoder_outputs, query).squeeze(2) # [batch, seq_len]
+        # Dot Product Attention
+        query = hidden[-1].unsqueeze(2)
+        scores = torch.bmm(encoder_outputs, query).squeeze(2)
         attn_weights = torch.softmax(scores, dim=1)
         
-        # Context vector is the weighted sum of encoder states
-        context = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs) # [batch, 1, hid_dim]
-        
-        # Combine embedding and context
+        context = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs)
         rnn_input = torch.cat((embedded, context), dim=2)
-        # -----------------------------
 
         output, (hidden, cell) = self.rnn(rnn_input, (hidden, cell))
         prediction = self.fc_out(output.squeeze(1))
@@ -61,16 +53,14 @@ class Seq2Seq(nn.Module):
         trg_len = trg.shape[1]
         outputs = torch.zeros(batch_size, trg_len, self.decoder.vocab_size).to(self.device)
         
-        # Get all encoder states for the Attention mechanism
         encoder_outputs, hidden, cell = self.encoder(src)
 
-        input = trg[:, 0] # Start with <SOS>
+        input = trg[:, 0]
 
         for t in range(1, trg_len):
             output, hidden, cell = self.decoder(input, hidden, cell, encoder_outputs)
             outputs[:, t, :] = output
             
-            # Decide whether to "cheat" with teacher forcing or use its own guess
             teacher_force = random.random() < teacher_forcing_ratio
             top1 = output.argmax(1)
             input = trg[:, t] if teacher_force else top1

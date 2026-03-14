@@ -9,24 +9,17 @@ SPECIAL_TOKENS = {
 }
 
 def smart_tokenize(text):
-    """
-    Tokenizes math strings while keeping SIN_1, COS_5, etc., as single tokens.
-    """
-    # Regex breakdown:
-    # 1. [A-Z]+_-?\d+  -> Matches SIN_1, COS_-2, EXP_5
-    # 2. [a-z]+        -> Matches variables like 'x' or 'exp' (if not consolidated)
-    # 3. [\d]          -> Matches single digits
-    # 4. [\+\-\*\/\^\(\),] -> Matches operators including our new ^
+    # Regex pattern breakdown:
+    # [A-Z]+_-?\d+      : Matches consolidated tokens (e.g., SIN_1, COS_-2, EXP_5)
+    # [a-z]+            : Matches variables (e.g., 'x')
+    # [\d]              : Matches single digits
+    # [\+\-\*\/\^\(\),] : Matches mathematical operators
     pattern = r'[A-Z]+_-?\d+|[a-z]+|[\d]|[\+\-\*\/\^\(\),]'
     return re.findall(pattern, str(text))
 
 def build_vocabulary(df):
-    """
-    Build token → integer mapping from the entire dataframe.
-    """
     counter = Counter()
 
-    # Tokenize both columns to get all possible tokens
     for col in ['function', 'taylor']:
         for text in df[col]:
             tokens = smart_tokenize(text)
@@ -35,7 +28,6 @@ def build_vocabulary(df):
     vocab = dict(SPECIAL_TOKENS)
     index = len(SPECIAL_TOKENS)
 
-    # Sort tokens so the vocab is consistent every time you run it
     for token in sorted(counter.keys()):
         if token not in vocab:
             vocab[token] = index
@@ -44,9 +36,6 @@ def build_vocabulary(df):
     return vocab
 
 def encode_tokens(tokens, vocab):
-    """
-    Convert tokens into integer ids with UNK handling.
-    """
     return [vocab.get(token, vocab["<UNK>"]) for token in tokens]
 
 if __name__ == "__main__":
@@ -54,21 +43,18 @@ if __name__ == "__main__":
     import json
     import os
 
-    # 1. Path to your NEW ready dataset
     DATA_PATH = "data/processed/dataset_ready_100k.csv"
     
     if os.path.exists(DATA_PATH):
         df = pd.read_csv(DATA_PATH)
         vocab = build_vocabulary(df)
         
-        print(f"✅ Vocabulary Built! Size: {len(vocab)}")
+        print(f"Vocabulary built. Size: {len(vocab)}")
         
-        # 2. Save it for the training script to use
         os.makedirs("models", exist_ok=True)
         with open("models/vocab.json", "w") as f:
             json.dump(vocab, f, indent=4)
         
-        # 3. Test on one of your new complex strings
         sample_text = df['taylor'].iloc[0]
         tokens = smart_tokenize(sample_text)
         encoded = encode_tokens(tokens, vocab)
@@ -77,4 +63,4 @@ if __name__ == "__main__":
         print(f"Tokens: {tokens}")
         print(f"Encoded: {encoded}")
     else:
-        print(f"❌ File not found: {DATA_PATH}. Run your preparation script first!")
+        print(f"File not found: {DATA_PATH}. Please run the preparation script first.")

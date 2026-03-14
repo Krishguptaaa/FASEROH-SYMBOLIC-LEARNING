@@ -1,38 +1,94 @@
-import torch
 import sys
 import json
+import difflib
+import warnings
+import torch
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
-from sympy import sympify, simplify
+from sympy import sympify, lambdify, symbols
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
 
 from src.evaluation.predict import predict_sequence, decode_tokens, load_model
 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def compute_r2(prediction_str, target_str):
+    x = symbols('x')
+    try:
+        pred_expr = sympify(prediction_str)
+        target_expr = sympify(target_str)
+        
+        pred_func = lambdify(x, pred_expr, modules=['numpy', 'sympy'])
+        target_func = lambdify(x, target_expr, modules=['numpy', 'sympy'])
+        
+        x_vals = np.linspace(-5, 5, 100)
+        
+        y_pred = pred_func(x_vals)
+        y_target = target_func(x_vals)
+        
+        if isinstance(y_pred, (int, float, np.integer, np.floating)):
+            y_pred = np.full_like(x_vals, y_pred, dtype=float)
+        if isinstance(y_target, (int, float, np.integer, np.floating)):
+            y_target = np.full_like(x_vals, y_target, dtype=float)
+            
+        y_pred = np.asarray(y_pred, dtype=float)
+        y_target = np.asarray(y_target, dtype=float)
+        
+        mask = np.isfinite(y_pred) & np.isfinite(y_target)
+        
+        if np.sum(mask) < 2: 
+            return -np.inf
+            
+        return r2_score(y_target[mask], y_pred[mask])
+        
+    except Exception:
+        return -np.inf
 
 def compute_metrics(predictions, targets):
     exact_match_count = 0
     symbolic_match_count = 0
+    total_similarity = 0.0
+    valid_r2_scores = []
 
-    for p, t in zip(predictions, targets):
-        # 1. Standard String Exact Match (Fast)
+    print("\nCalculating math metrics via SymPy...")
+    for p, t in tqdm(zip(predictions, targets), total=len(predictions), ncols=80):
+        
+        similarity = difflib.SequenceMatcher(None, p.strip(), t.strip()).ratio()
+        total_similarity += similarity
+
         if p.strip() == t.strip():
             exact_match_count += 1
             symbolic_match_count += 1
+            valid_r2_scores.append(1.0) 
             continue
             
-        # 2. Symbolic Equivalence (Slow but robust)
         try:
-            if simplify(sympify(p) - sympify(t)) == 0:
+            # Using .expand() instead of .simplify() as SymPy can freeze on unconstrained transformer hallucinations
+            if sympify(p).expand() == sympify(t).expand():
                 symbolic_match_count += 1
-        except:
-            pass # Sympy couldn't parse the model's output
+                valid_r2_scores.append(1.0)
+                continue
+        except Exception:
+            pass 
+            
+        r2 = compute_r2(p, t)
+        if r2 != -np.inf:
+            valid_r2_scores.append(r2)
+        else:
+            valid_r2_scores.append(0.0)
 
     total = len(predictions)
-    return (exact_match_count / total) * 100, (symbolic_match_count / total) * 100
+    avg_similarity = (total_similarity / total) * 100
+    
+    capped_r2s = [max(0.0, r) for r in valid_r2_scores]
+    mean_r2 = np.mean(capped_r2s) if capped_r2s else 0.0
+    
+    return (exact_match_count / total) * 100, (symbolic_match_count / total) * 100, avg_similarity, mean_r2
 
 def evaluate():
-    # Load identical test set split from training to prevent data leakage
     df = pd.read_csv("data/processed/dataset_ready_100k.csv")
     _, test_df = train_test_split(df, test_size=0.1, random_state=42)
     
@@ -46,22 +102,20 @@ def evaluate():
 
     if model_type == "lstm":
         model = load_model(vocab, device)
-        print(f"✅ Evaluating LSTM model on {device}")
+        print(f"Evaluating LSTM model on {device}")
     elif model_type == "transformer":
         from src.models.transformer_seq2seq import TransformerSeq2Seq
         model = TransformerSeq2Seq(len(vocab)).to(device)
         model.load_state_dict(torch.load("models/transformer_model.pth", weights_only=True))
         model.eval()
-        print(f"✅ Evaluating Transformer model on {device}")
+        print(f"Evaluating Transformer model on {device}")
     
     predictions = []
     targets = []
-    
-    # Testing on 500 samples
-    samples_to_test = 500
-    print(f"Running inference on {samples_to_test} test cases...")
 
-    for f, t in tqdm(zip(test_f[:samples_to_test], test_t[:samples_to_test]), total=samples_to_test, ncols=80):
+    print(f"Running inference on {len(test_f)} test cases...")
+
+    for f, t in tqdm(zip(test_f, test_t), total=len(test_f), ncols=80):
         if model_type == "lstm":
             predicted_ids = predict_sequence(model, f, vocab, device)
         else:
@@ -72,22 +126,16 @@ def evaluate():
         predictions.append(prediction)
         targets.append(t)
 
-    exact_acc, symbolic_acc = compute_metrics(predictions, targets)
+    exact_acc, symbolic_acc, similarity_score, r2 = compute_metrics(predictions, targets)
     
-    print("\n" + "="*40)
-    print(f"📊 EVALUATION RESULTS FOR {model_type.upper()}")
-    print("="*40)
+    print("\n" + "="*45)
+    print(f"EVALUATION RESULTS FOR {model_type.upper()}")
+    print("="*45)
     print(f"String Exact Match:   {exact_acc:.2f}%")
     print(f"Symbolic Equivalence: {symbolic_acc:.2f}%")
-    print("="*40)
-    
-    # Print a few examples for visual inspection
-    print("\n🔍 SAMPLE PREDICTIONS:")
-    for i in range(3):
-        print(f"F(x)  : {test_f[i]}")
-        print(f"Target: {test_t[i]}")
-        print(f"Pred  : {predictions[i]}")
-        print("-" * 40)
+    print(f"Sequence Similarity:  {similarity_score:.2f}%")
+    print(f"Mean R^2 Score:       {r2:.4f}")
+    print("="*45)
 
 if __name__ == "__main__":
     evaluate()

@@ -1,23 +1,12 @@
 import re
 
 def tokenize_expression(expr):
-    """
-    Convert a mathematical expression string into tokens.
-    """
-    # Remove spaces
     expr = expr.replace(" ", "")
-
-    # THE FIX: Added the comma ',' to the character class at the end
     pattern = r"sin|cos|exp|\*\*|\d+|x|[+\-*/(),]"
-
     tokens = re.findall(pattern, expr)
-
     return tokens
 
 def tokenize_dataset(expressions):
-    """
-    Tokenize a list of expressions.
-    """
     tokenized = []
     for expr in expressions:
         tokens = tokenize_expression(expr)
@@ -25,7 +14,6 @@ def tokenize_dataset(expressions):
     return tokenized
 
 if __name__ == "__main__":
-    # Let's test it with the new expansion points!
     test_expressions = [
         "sin(x) , 0",
         "exp(x) + x + 3 , 1",

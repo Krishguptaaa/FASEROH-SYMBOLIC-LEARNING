@@ -1,12 +1,10 @@
 import torch
-import json
 from src.preprocessing.vocabulary import smart_tokenize
 from src.utils.config import MAX_SEQUENCE_LENGTH
 from src.models.lstm_seq2seq import Encoder, Decoder, Seq2Seq
-# from src.models.transformer_seq2seq import TransformerSeq2Seq # Uncomment when ready
+from src.preprocessing.encoder import encode_dataset
 
 def load_model(vocab, device, model_path="models/lstm_model.pth"):
-    # Must match the BEST_PARAMS used in training!
     emb_dim = 256
     hid_dim = 512
     n_layers = 2
@@ -15,32 +13,33 @@ def load_model(vocab, device, model_path="models/lstm_model.pth"):
     decoder = Decoder(len(vocab), emb_dim, hid_dim, n_layers)
     model = Seq2Seq(encoder, decoder, device).to(device)
     
-    # Load weights safely
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.eval()
     return model
 
 def predict_sequence(model, input_expr, vocab, device, max_length=MAX_SEQUENCE_LENGTH):
     model.eval()
+    
     tokens = smart_tokenize(input_expr)
     
-    # Add SOS and EOS tokens
-    token_ids = [vocab["<SOS>"]] + [vocab.get(t, vocab["<UNK>"]) for t in tokens] + [vocab["<EOS>"]]
-    src = torch.LongTensor(token_ids).unsqueeze(0).to(device) # [1, seq_len]
+    encoded = encode_dataset([tokens], vocab, max_length)
     
+    if not isinstance(encoded, torch.Tensor):
+        src = torch.LongTensor(encoded).to(device)
+    else:
+        src = encoded.to(device)
+        
     with torch.no_grad():
-        # THE FIX 1: Unpack all 3 values (We need encoder_outputs for your Attention!)
         encoder_outputs, hidden, cell = model.encoder(src)
         
-        # Start decoding with <SOS>
         input_token = torch.tensor([vocab["<SOS>"]]).to(device)
         outputs = []
 
         for _ in range(max_length):
-            # THE FIX 2: Pass encoder_outputs into your Decoder
             output, hidden, cell = model.decoder(input_token, hidden, cell, encoder_outputs)
             
             predicted_token = output.argmax(1).item()
+            
             if predicted_token == vocab["<EOS>"]:
                 break
                 
@@ -50,7 +49,6 @@ def predict_sequence(model, input_expr, vocab, device, max_length=MAX_SEQUENCE_L
     return outputs
 
 def predict_sequence_transformer(model, expression, vocab, device, max_len=MAX_SEQUENCE_LENGTH):
-    # Left intact for your next step!
     model.eval()
     tokens = smart_tokenize(expression)
     token_ids = [vocab["<SOS>"]] + [vocab.get(t, vocab["<UNK>"]) for t in tokens] + [vocab["<EOS>"]]
@@ -75,4 +73,4 @@ def predict_sequence_transformer(model, expression, vocab, device, max_len=MAX_S
 def decode_tokens(token_ids, vocab):
     inv_vocab = {v: k for k, v in vocab.items()}
     tokens = [inv_vocab.get(idx, "<UNK>") for idx in token_ids]
-    return "".join(tokens) # Recombine directly
+    return "".join(tokens)
