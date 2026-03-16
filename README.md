@@ -107,19 +107,19 @@ FASEROH-SYMBOLIC-LEARNING/
 Limitations & Future Scope:
 While this repository successfully establishes a baseline for symbolic translation, there are inherent limitations bounded by the current hardware scope and architectural assumptions.
 
-1. The Inductive Bias of TransformersTransformers rely on positional encodings to understand sequence. However, mathematics is hierarchical, not purely sequential. The Transformer's current Exact Match deficit ($\sim 51\%$) is likely due to standard sinusoidal embeddings failing to capture the strict algebraic order of operations.
+1. The Inductive Bias of Transformers - Transformers rely on positional encodings to understand sequence. However, mathematics is hierarchical, not purely sequential. The Transformer's current Exact Match deficit ($\sim 51\%$) is likely due to standard sinusoidal embeddings failing to capture the strict algebraic order of operations.
 
 Future Scope: Implementing Relative Positional Encodings or replacing the flattened 1D sequence input with Graph Neural Networks (GNNs) or Tree-RNNs to natively ingest the Abstract Syntax Tree (AST) of the equations.
 
-2. Dataset Constriction vs. Compute LimitationsThe dataset is currently capped at 100,000 equations due to single-GPU (RTX 3050) / limited cloud compute boundaries. While sufficient for LSTM convergence, Transformers are notoriously data-hungry and typically require millions of rows to build robust internal representations of complex grammar (like calculus).
+2. Dataset Constriction vs. Compute Limitations - The dataset is currently capped at 100,000 equations due to single-GPU (RTX 3050) / limited cloud compute boundaries. While sufficient for LSTM convergence, Transformers are notoriously data-hungry and typically require millions of rows to build robust internal representations of complex grammar (like calculus).
 
 Future Scope: Expanding the generation pipeline to 1M+ rows, distributed via PyTorch DDP.
 
-3. Operator ExtensibilityThe current generator is restricted to polynomials, exponents, and basic trigonometry.
+3. Operator Extensibility - The current generator is restricted to polynomials, exponents, and basic trigonometry.
 
 Future Scope: Injecting logarithmic (log), hyperbolic (sinh, cosh), and fractional power operators into the generator to verify if the latent space can handle extreme algebraic scaling without catastrophic forgetting.
 
-4. Data Augmentation via CommutativityCurrently, the model treats x + 2 and 2 + x as entirely different input sequences.
+4. Data Augmentation via Commutativity - Currently, the model treats x + 2 and 2 + x as entirely different input sequences.
 
 Future Scope: Implement a data loader that randomly applies commutative and associative permutations during training. This would artificially expand the dataset's robustness without requiring the generation of new computational graphs.
 
