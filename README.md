@@ -65,25 +65,43 @@ Both architectures share a unified embedding space and custom tokenization (`sma
 FASEROH-SYMBOLIC-LEARNING/
 │
 ├── data/
-│   ├── raw/                 # Generated raw expressions
-│   └── processed/           # Tokenized & protected 100k dataset
+│   ├── processed/           # Processed and tokenized datasets
+│   └── raw/                 # Raw generated mathematical expressions
+│
+├── models/                  # Saved .pth weights and vocab.json
+│
+├── notebooks/               # Jupyter notebooks for exploratory analysis
 │
 ├── src/
-│   ├── models/
-│   │   ├── lstm_seq2seq.py         # Encoder/Decoder with TF
-│   │   └── transformer_seq2seq.py  # Multi-Head Attention architecture
+│   ├── dataset/             # Data generation pipeline (SymPy)
+│   │   ├── dataset_builder.py
+│   │   ├── expression_generator.py
+│   │   └── taylor_generator.py
 │   │
-│   ├── preprocessing/
-│   │   ├── encoder.py              # Tensor conversion
-│   │   └── vocabulary.py           # Custom symbolic vocabulary builder
+│   ├── evaluation/          # Benchmarking and inference scripts
+│   │   ├── evaluate_model.py
+│   │   └── predict.py
 │   │
-│   └── training/                   # Model-specific training loops
+│   ├── models/              # PyTorch Neural Network architectures
+│   │   ├── lstm_seq2seq.py
+│   │   └── transformer_seq2seq.py
+│   │
+│   ├── preprocessing/       # Tokenization and tensor conversion
+│   │   ├── encoder.py
+│   │   ├── prepare_dataset.py
+│   │   ├── tokenizer.py
+│   │   └── vocabulary.py
+│   │
+│   ├── training/            # Main training loops
+│   │   ├── train_lstm.py
+│   │   └── train_transformer.py
+│   │
+│   └── utils/
+│       └── config.py        # Global hyperparameters and special tokens
 │
-├── experiments/             
-│   └── transformer_study.py        # Optuna hyperparameter sweeps
-│
-├── config.py                # Global hyperparameters & special tokens
-└── README.md# FASEROH-SYMBOLIC-LEARNING
+├── .gitattributes
+├── LICENSE
+└── README.md
 ```
 
 Limitations & Future Scope:
